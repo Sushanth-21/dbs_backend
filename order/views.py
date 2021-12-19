@@ -38,7 +38,44 @@ class execute(APIView):
         try:
             m,c=Market.objects.get_or_create(id=1)
             if m.status=="True":
-                pass
+                price=int(request.data["price"])
+                qty=int(request.data["quantity"])
+                orders=Order.objects.exclude(status="rejected").exclude(price__lt=price)
+                n=len(orders)
+                qty=qty//n
+                rem=qty%n
+                for o in orders:
+                    if o.status=="rejected" or o.quantity==0:
+                        continue
+                    if o.type=="limit":
+                        if o.price<price:
+                            o.status="rejected"
+                            o.save()
+                            continue
+                        if o.quantity>=qty:
+                            o.quantity-=qty
+                            o.executed_qty+=qty
+                    else:
+                        o.quantity-=qty
+                        o.executed_qty+=qty
+                    o.save()
+                orders=sorted(orders,reverse=True,key=lambda x:x.price)
+                i=0
+                while rem!=0 and i<n:
+                    if orders[i].quantity!=0 and orders[i].status!="rejected":
+                        if orders[i].quantity<=rem:
+                            rem-=orders[i].quantity
+                            orders[i].executed_qty+=rem
+                            orders[i].quantity=0
+                        else:
+                            tmp=orders[i].quantity
+                            orders[i].quantity-=rem
+                            orders[i].executed_qty+=rem
+                            rem-=tmp
+                        orders[i].save()
+                    i+=1
+                print(rem)
+                return Response({"orders":Order.objects.all().values()},200)
             else:
                 return Response({"message":"You don't have the permission to execute the orders."},400)
         except Exception as e:
