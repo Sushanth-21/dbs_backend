@@ -39,11 +39,10 @@ class execute(APIView):
             m,c=Market.objects.get_or_create(id=1)
             if m.status=="True":
                 price=int(request.data["price"])
-                qty=int(request.data["quantity"])
+                qty1=int(request.data["quantity"])
                 orders=Order.objects.exclude(status="rejected").exclude(price__lt=price)
                 n=len(orders)
-                qty=qty//n
-                rem=qty%n
+                qty=qty1//n
                 for o in orders:
                     if o.status=="rejected" or o.quantity==0:
                         continue
@@ -55,12 +54,15 @@ class execute(APIView):
                         if o.quantity>=qty:
                             o.quantity-=qty
                             o.executed_qty+=qty
+                            qty1-=qty
                     else:
                         o.quantity-=qty
                         o.executed_qty+=qty
+                        qty1-=qty
                     o.save()
                 orders=sorted(orders,reverse=True,key=lambda x:x.price)
                 i=0
+                rem=qty1
                 while rem!=0 and i<n:
                     if orders[i].quantity!=0 and orders[i].status!="rejected":
                         if orders[i].quantity<=rem:
